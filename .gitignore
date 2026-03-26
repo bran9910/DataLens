@@ -1,0 +1,9 @@
+# Dossiers de données locales (peuvent contenir des fichiers sensibles)
+Données/
+Résultats/
+Code source/
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+*.tmp
