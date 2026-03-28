@@ -989,14 +989,24 @@ function applyFilters(){
 // ══════════════════════════════════════
 // TAB SWITCH
 // ══════════════════════════════════════
+function triggerAnimations(scope){
+  const root=scope||document;
+  requestAnimationFrame(()=>{
+    const obs=new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target);}});
+    },{threshold:0.08});
+    root.querySelectorAll('.kpi,.sec,.ccard').forEach(el=>{el.classList.remove('visible');obs.observe(el);});
+  });
+}
+
 function switchTab(id,btn){
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   btn.classList.add('active');
   // Lazy-build advanced charts on first view
-  if(id==='t-advanced') buildAdvanced();
-  if(id==='t-charts'){buildChartsGrid();buildScatter();buildRadar();}
+  if(id==='t-advanced'){buildAdvanced();triggerAnimations(document.getElementById('t-advanced'));}
+  if(id==='t-charts'){buildChartsGrid();buildScatter();buildRadar();triggerAnimations(document.getElementById('t-charts'));}
   if(id==='t-insights') renderInsights();
   if(id==='t-data') renderTable();
 }
@@ -1012,12 +1022,7 @@ function renderDashboard(){
   renderInsights();
   buildAdvanced();
   // Entrance animations via IntersectionObserver
-  requestAnimationFrame(()=>{
-    const obs=new IntersectionObserver((entries)=>{
-      entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target);}});
-    },{threshold:0.08});
-    document.querySelectorAll('.kpi,.sec,.ccard').forEach(el=>{el.classList.remove('visible');obs.observe(el);});
-  });
+  triggerAnimations();
 }
 
 // ══════════════════════════════════════
