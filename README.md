@@ -11,8 +11,7 @@
 
 ---
 
-<!-- Replace the line below with your actual GIF once recorded -->
-<!-- ![DataLens Demo](demo.gif) -->
+![DataLens Demo](demo.gif)
 
 ---
 
