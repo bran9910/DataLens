@@ -145,6 +145,12 @@ DataLens/
 
 ---
 
+## 📝 Statistical Notes
+
+- **Quartile method**: Q1/Q3 use the *nearest-rank* method (`Math.floor(n × 0.25/0.75)`). Results may differ slightly from software using linear interpolation (R, SPSS). This is intentional — it keeps the implementation dependency-free and runs fast in the browser.
+
+---
+
 ## 📌 Roadmap
 
 - [ ] Persistent chat history per dataset

@@ -156,6 +156,16 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 /* ── ENTRANCE ANIMATIONS ── */
 .kpi,.sec,.ccard{opacity:0;transform:translateY(18px);transition:opacity .45s ease,transform .45s ease}
 .kpi.visible,.sec.visible,.ccard.visible{opacity:1;transform:translateY(0)}
+
+/* ── SKELETON LOADING ── */
+@keyframes skeleton-pulse{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.skeleton-shimmer{background:linear-gradient(90deg,var(--card2) 25%,var(--border) 50%,var(--card2) 75%);
+  background-size:200% 100%;animation:skeleton-pulse 1.4s infinite;border-radius:6px;color:transparent!important;
+  pointer-events:none;min-height:1em}
+.skeleton-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);
+  padding:18px;box-shadow:var(--shadow);opacity:1!important;transform:none!important}
+.skeleton-card .sk-line{height:12px;border-radius:4px;margin-bottom:10px}
+.skeleton-card .sk-chart{height:180px;border-radius:6px}
 .ct{font-size:13px;font-weight:600;margin-bottom:3px;color:var(--text)}
 .cs{font-size:11px;color:var(--muted);margin-bottom:14px}
 .cw{position:relative;height:220px} .cw.tall{height:280px}
@@ -819,21 +829,37 @@ function switchFile(name){
 // LOAD DATASET (core entry point)
 // ══════════════════════════════════════
 function loadDataset(parsed, name){
-  RAW=parsed.data;
-  COLS=parsed.cols;
-  TYPES=detectTypes(RAW,COLS);
-  STATS=computeAllStats(RAW);
-  OUTLIERS=detectAllOutliers(RAW);
-  FILTERED=[...RAW];
-  setupFilters();
-  setupScatterSelects();
-  setupRadarSelects();
-  setupBoxSelects();
-  renderDashboard();
-  AI_HISTORY=[];
-  initAIWelcome();
+  // Show dashboard immediately with skeleton placeholders
   document.getElementById('upload-screen').style.display='none';
   document.getElementById('dashboard').style.display='block';
+  // Inject skeletons while data is being processed
+  document.getElementById('file-badge').textContent=name||'…';
+  ['kpi-rows','kpi-cols','kpi2-val','kpi2-sub','kpi3-val','kpi4-val'].forEach(id=>{
+    const el=document.getElementById(id); if(el){el.textContent='';el.classList.add('skeleton-shimmer');}
+  });
+  document.getElementById('charts-grid').innerHTML=
+    Array(4).fill(0).map(()=>`<div class="skeleton-card s6">
+      <div class="sk-line skeleton-shimmer" style="width:60%"></div>
+      <div class="sk-line skeleton-shimmer" style="width:40%"></div>
+      <div class="sk-chart skeleton-shimmer"></div></div>`).join('');
+  // Defer heavy computation to let browser render the skeletons first
+  setTimeout(()=>{
+    RAW=parsed.data;
+    COLS=parsed.cols;
+    TYPES=detectTypes(RAW,COLS);
+    STATS=computeAllStats(RAW);
+    OUTLIERS=detectAllOutliers(RAW);
+    FILTERED=[...RAW];
+    // Remove skeleton shimmer from KPI values
+    document.querySelectorAll('.skeleton-shimmer').forEach(el=>el.classList.remove('skeleton-shimmer'));
+    setupFilters();
+    setupScatterSelects();
+    setupRadarSelects();
+    setupBoxSelects();
+    renderDashboard();
+    AI_HISTORY=[];
+    initAIWelcome();
+  },0);
 }
 
 // Legacy alias (sample data path)
@@ -1157,6 +1183,28 @@ function buildTime(id,dc,nc){
   CHARTS[id]=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:nc,data:vals,
     borderColor:PAL[0],backgroundColor:'rgba(108,99,255,0.12)',
     borderWidth:2.5,fill:true,tension:.35,pointRadius:3,pointHoverRadius:6}]},options:getChartOpts()});
+  // Trend badge
+  if(vals.length>=2){
+    const n=vals.length;
+    const xm=(n-1)/2;
+    const ym=vals.reduce((a,b)=>a+b,0)/n;
+    const num=vals.reduce((s,v,i)=>s+(i-xm)*(v-ym),0);
+    const den=vals.reduce((s,_,i)=>s+(i-xm)**2,0);
+    const slope=den?num/den:0;
+    const first=vals.find(v=>v!==0)||vals[0];
+    const last=vals[vals.length-1];
+    const pct=first?((last-first)/Math.abs(first)*100).toFixed(1):0;
+    const up=slope>=0;
+    const badge=`<span style="display:inline-block;margin-top:6px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;background:${up?'rgba(0,212,170,0.15)':'rgba(255,107,107,0.15)'};color:${up?'#00D4AA':'#FF6B6B'}">${up?'📈':'📉'} ${up?'+':''}${pct}% sur la période</span>`;
+    const card=document.getElementById(id).closest('.ccard');
+    if(card&&!card.querySelector('.trend-badge')){
+      const b=document.createElement('div');
+      b.className='trend-badge';
+      b.innerHTML=badge;
+      b.style.paddingBottom='4px';
+      card.querySelector('.cs').insertAdjacentElement('afterend',b);
+    }
+  }
 }
 function buildMulti(id,dc,ncs){
   const agg={};ncs.forEach(n=>{agg[n]={}});
@@ -1313,12 +1361,14 @@ function buildAdvanced(){
 // --- Correlation Heatmap (div-based) ---
 function corrColor(r){
   const t=Math.abs(r);
+  const dark=document.documentElement.dataset.dark==='1';
+  const base=dark?[26,26,53]:[240,240,248];
   if(r>0){
-    const [r0,g0,b0]=[26,26,53],[r1,g1,b1]=[0,212,170];
-    return`rgb(${Math.round(r0+(r1-r0)*t)},${Math.round(g0+(g1-g0)*t)},${Math.round(b0+(b1-b0)*t)})`;
+    const pos=[0,212,170];
+    return`rgb(${Math.round(base[0]+(pos[0]-base[0])*t)},${Math.round(base[1]+(pos[1]-base[1])*t)},${Math.round(base[2]+(pos[2]-base[2])*t)})`;
   } else {
-    const [r0,g0,b0]=[26,26,53],[r1,g1,b1]=[255,107,107];
-    return`rgb(${Math.round(r0+(r1-r0)*t)},${Math.round(g0+(g1-g0)*t)},${Math.round(b0+(b1-b0)*t)})`;
+    const neg=[255,107,107];
+    return`rgb(${Math.round(base[0]+(neg[0]-base[0])*t)},${Math.round(base[1]+(neg[1]-base[1])*t)},${Math.round(base[2]+(neg[2]-base[2])*t)})`;
   }
 }
 function buildHeatmap(){
@@ -1579,8 +1629,12 @@ function resetApp(){
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
 }
 
-// Resize box plot on window resize
-window.addEventListener('resize',()=>{if(FILTERED.length) buildBoxPlot()});
+// Resize box plot on window resize (debounced)
+let _resizeTimer;
+window.addEventListener('resize',()=>{
+  clearTimeout(_resizeTimer);
+  _resizeTimer=setTimeout(()=>{if(FILTERED.length) buildBoxPlot();},150);
+});
 
 // ══════════════════════════════════════
 // AI ASSISTANT
