@@ -152,6 +152,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .ccard{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px;box-shadow:var(--shadow)}
 .s8{grid-column:span 8} .s4{grid-column:span 4}
 .s6{grid-column:span 6} .s12{grid-column:span 12}
+
+/* ── ENTRANCE ANIMATIONS ── */
+.kpi,.sec,.ccard{opacity:0;transform:translateY(18px);transition:opacity .45s ease,transform .45s ease}
+.kpi.visible,.sec.visible,.ccard.visible{opacity:1;transform:translateY(0)}
 .ct{font-size:13px;font-weight:600;margin-bottom:3px;color:var(--text)}
 .cs{font-size:11px;color:var(--muted);margin-bottom:14px}
 .cw{position:relative;height:220px} .cw.tall{height:280px}
@@ -333,7 +337,7 @@ table.dt tbody tr:hover td{background:#F8FAFF}
   .sidebar,.db-header,.btn-new,.btn-exp,.fsel{display:none!important}
   .db-body{margin-left:0!important}
   .tab-pane{display:block!important}
-  body,.kpi,.sec,.ccard,.quality-bar-wrap{background:#fff!important;color:#111!important;border-color:#ccc!important}
+  body,.kpi,.sec,.ccard,.quality-bar-wrap{background:#fff!important;color:#111!important;border-color:#ccc!important;opacity:1!important;transform:none!important}
 }
 @media(max-width:900px){
   .sidebar{width:60px;min-width:60px}
@@ -423,6 +427,7 @@ table.dt tbody tr:hover td{background:#F8FAFF}
         <select class="fsel" id="f1" onchange="applyFilters()"><option value="">Tous</option></select>
         <select class="fsel" id="f2" onchange="applyFilters()"><option value="">Tous</option></select>
         <button class="btn-exp" onclick="exportPDF()">⬇ Export PDF</button>
+        <button class="btn-exp" onclick="exportCSV()" title="Exporter les données filtrées en CSV" style="margin-left:6px;background:var(--teal)">⬇ Export CSV</button>
         <button class="btn-dark" id="btn-dark" onclick="toggleDark()" title="Mode nuit">🌙</button>
       </div>
     </div>
@@ -797,8 +802,9 @@ function showFileSwitcher(names, active, mode){
     ?`<span class="merge-badge">✓ ${names.length} fichiers fusionnés</span>`
     :`<span style="font-size:11px;color:var(--muted);white-space:nowrap">Fichier actif :</span>`;
   row.innerHTML=label+names.map(n=>
-    `<button class="file-pill${n===active?' active':''}" onclick="switchFile('${n}')">${n}</button>`
+    `<button class="file-pill${n===active?' active':''}" data-file="${escHtml(n)}">${escHtml(n)}</button>`
   ).join('');
+  row.querySelectorAll('.file-pill').forEach(btn=>btn.addEventListener('click',()=>switchFile(btn.dataset.file)));
 }
 
 // ── Switch active file (switcher mode)
@@ -979,6 +985,13 @@ function renderDashboard(){
   renderTable();
   renderInsights();
   buildAdvanced();
+  // Entrance animations via IntersectionObserver
+  requestAnimationFrame(()=>{
+    const obs=new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target);}});
+    },{threshold:0.08});
+    document.querySelectorAll('.kpi,.sec,.ccard').forEach(el=>{el.classList.remove('visible');obs.observe(el);});
+  });
 }
 
 // ══════════════════════════════════════
@@ -1314,10 +1327,8 @@ function buildHeatmap(){
   if(nc.length<2){cont.innerHTML='<div class="empty">Au moins 2 colonnes numériques sont nécessaires.</div>';return}
   // Compute all pairs
   const matrix=nc.map(r=>nc.map(c=>{
-    const x=FILTERED.map(row=>parseFloat(row[r])).filter(v=>!isNaN(v));
-    const y=FILTERED.map(row=>parseFloat(row[c])).filter(v=>!isNaN(v));
-    const n=Math.min(x.length,y.length);
-    return n<2?0:pearson(x.slice(0,n),y.slice(0,n));
+    const pairs=FILTERED.map(row=>[parseFloat(row[r]),parseFloat(row[c])]).filter(([a,b])=>!isNaN(a)&&!isNaN(b));
+    return pairs.length<2?0:pearson(pairs.map(p=>p[0]),pairs.map(p=>p[1]));
   }));
   const n=nc.length;
   // Build grid
@@ -1463,11 +1474,12 @@ function renderInsights(){
   if(nc.length>=2){
     let best=null,bestR=0;
     for(let i=0;i<nc.length;i++) for(let j=i+1;j<nc.length;j++){
-      const x=data.map(r=>parseFloat(r[nc[i]])).filter(v=>!isNaN(v));
-      const y=data.map(r=>parseFloat(r[nc[j]])).filter(v=>!isNaN(v));
-      const n=Math.min(x.length,y.length);
-      const r=Math.abs(pearson(x.slice(0,n),y.slice(0,n)));
-      if(r>bestR){bestR=r;best=[nc[i],nc[j],pearson(x.slice(0,n),y.slice(0,n))]}
+      const pairs=data.map(row=>[parseFloat(row[nc[i]]),parseFloat(row[nc[j]])]).filter(([a,b])=>!isNaN(a)&&!isNaN(b));
+      if(pairs.length<2) continue;
+      const px=pairs.map(p=>p[0]),py=pairs.map(p=>p[1]);
+      const rv=pearson(px,py);
+      const r=Math.abs(rv);
+      if(r>bestR){bestR=r;best=[nc[i],nc[j],rv]}
     }
     if(best&&bestR>0.6){
       const dir=best[2]>0?'positive':'négative';
@@ -1516,7 +1528,7 @@ function renderTable(){
     const typeBadge=TYPES[col]==='num'?'<span style="background:rgba(108,99,255,.2);color:#8b85ff;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px">NUM</span>':
       TYPES[col]==='date'?'<span style="background:rgba(255,209,102,.15);color:#FFD166;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px">DATE</span>':
       '<span style="background:rgba(0,212,170,.1);color:#00D4AA;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px">CAT</span>';
-    h+=`<th onclick="sortTbl('${col}')">${col}${typeBadge}${arr}</th>`;
+    h+=`<th data-col="${escHtml(col)}">${escHtml(col)}${typeBadge}${arr}</th>`;
   });
   h+=`</tr></thead><tbody>`;
   pg.forEach((row,ri)=>{
@@ -1525,19 +1537,20 @@ function renderTable(){
       const v=row[col];
       if(TYPES[col]==='cat'&&v){
         const color=catC[col+'|'+v]||PAL[0];
-        h+=`<td><span class="badge" style="background:${color}22;color:${color}">${v}</span></td>`;
+        h+=`<td><span class="badge" style="background:${color}22;color:${color}">${escHtml(String(v))}</span></td>`;
       } else if(TYPES[col]==='num'){
         const vf=parseFloat(v);
         const isOut=iqrRanges[col]&&(!isNaN(vf))&&(vf<iqrRanges[col].lo||vf>iqrRanges[col].hi);
         h+=`<td class="num-c${isOut?' outlier-cell':''}" title="${isOut?'⚠️ Valeur aberrante':''}">${v!==null&&v!==undefined?fmt(v,2):'—'}</td>`;
       } else {
-        h+=`<td>${v!==null&&v!==undefined?v:'—'}</td>`;
+        h+=`<td>${v!==null&&v!==undefined?escHtml(String(v)):'—'}</td>`;
       }
     });
     h+=`</tr>`;
   });
   h+=`</tbody></table>`;
   document.getElementById('tbl-wrap').innerHTML=h;
+  document.querySelectorAll('#tbl-wrap th[data-col]').forEach(th=>th.addEventListener('click',()=>sortTbl(th.dataset.col)));
   const totalPages=Math.ceil(tot/PAGE);
   document.getElementById('pagn').innerHTML=
     `<span>Affichage ${Math.min(start+1,tot)}–${Math.min(start+PAGE,tot)} sur ${tot}</span>
@@ -1966,6 +1979,22 @@ function initAIWelcome(){
 // ══════════════════════════════════════
 // PDF EXPORT — clean print window
 // ══════════════════════════════════════
+function exportCSV(){
+  if(!FILTERED||!FILTERED.length){alert('Aucune donnée à exporter.');return;}
+  const header=COLS.join(',');
+  const rows=FILTERED.map(r=>COLS.map(c=>{
+    const v=String(r[c]??'');
+    return v.includes(',')||v.includes('"')||v.includes('\n')?`"${v.replace(/"/g,'""')}"`:v;
+  }).join(','));
+  const bom='\uFEFF';
+  const blob=new Blob([bom+header+'\n'+rows.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`DataLens_export_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 function exportPDF(){
   // 1. Capture all chart canvases as images
   const chartImgs = {};
@@ -2015,11 +2044,12 @@ function exportPDF(){
   if(nc.length>=2){
     let best=null,bestR=0;
     for(let i=0;i<nc.length;i++) for(let j=i+1;j<nc.length;j++){
-      const x=data.map(r=>parseFloat(r[nc[i]])).filter(v=>!isNaN(v));
-      const y=data.map(r=>parseFloat(r[nc[j]])).filter(v=>!isNaN(v));
-      const n=Math.min(x.length,y.length);
-      const r=Math.abs(pearson(x.slice(0,n),y.slice(0,n)));
-      if(r>bestR){bestR=r;best=[nc[i],nc[j],pearson(x.slice(0,n),y.slice(0,n))]}
+      const pairs=data.map(row=>[parseFloat(row[nc[i]]),parseFloat(row[nc[j]])]).filter(([a,b])=>!isNaN(a)&&!isNaN(b));
+      if(pairs.length<2) continue;
+      const px=pairs.map(p=>p[0]),py=pairs.map(p=>p[1]);
+      const rv=pearson(px,py);
+      const r=Math.abs(rv);
+      if(r>bestR){bestR=r;best=[nc[i],nc[j],rv]}
     }
     if(best&&bestR>0.5) ins.push({icon:'🔗',
       text:`Corrélation r=${best[2].toFixed(2)} entre <em>${best[0]}</em> et <em>${best[1]}</em>`});
