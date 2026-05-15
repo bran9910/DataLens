@@ -1,13 +1,13 @@
-# 📊 DataLens v3 — Auto Report Generator
+# 📊 DataLens v4 — CSV Analytics Dashboard
 
-[![GitHub Pages](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-blue?logo=github)](https://bran9910.github.io/DataLens/DataLens.html)
+[![GitHub Pages](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-blue?logo=github)](https://bran9910.github.io/DataLens/app.html)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Single File](https://img.shields.io/badge/App-Single%20HTML%20File-orange)](DataLens.html)
+[![Single File](https://img.shields.io/badge/App-Single%20HTML%20File-orange)](app.html)
 
 > A self-contained, single-file analytics dashboard with an integrated AI assistant.
 > No server, no install, no build step — just open the HTML file in your browser.
 
-🔗 **[Live Demo →](https://bran9910.github.io/DataLens/DataLens.html)**
+🔗 **[Live Demo →](https://bran9910.github.io/DataLens/app.html)**
 
 ---
 
@@ -35,9 +35,9 @@
 ### Option A — Live (no install)
 
 Open the app directly in your browser:
-👉 **[bran9910.github.io/DataLens/DataLens.html](https://bran9910.github.io/DataLens/DataLens.html)**
+👉 **[bran9910.github.io/DataLens/app.html](https://bran9910.github.io/DataLens/app.html)**
 
-Click **"Charger les données démo"** to explore with sample data, or drop your own CSV file.
+Three demo CSV files load automatically on first launch. Drop your own CSV to replace them.
 
 ### Option B — Run locally
 
@@ -47,11 +47,11 @@ git clone https://github.com/bran9910/DataLens.git
 cd DataLens
 
 # Open directly (no AI features requiring CORS)
-open DataLens.html
+open app.html
 
 # Or serve locally (required for Ollama local AI)
 python -m http.server 8080
-# → http://localhost:8080/DataLens.html
+# → http://localhost:8080/app.html
 ```
 
 ---
@@ -137,8 +137,9 @@ Compatible with LM Studio, vLLM, llama.cpp server, and other self-hosted models.
 
 ```
 DataLens/
-├── DataLens.html    # Entire application — single self-contained file
-├── index.html       # GitHub Pages redirect → DataLens.html
+├── index.html       # Landing page
+├── app.html         # Dashboard application — single self-contained file
+├── demo.gif         # Demo recording
 └── README.md        # This file
 ```
 
